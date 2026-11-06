@@ -422,8 +422,77 @@ function shieldPath(ctx, x, y, w, h) {
 // ---------------------------------------------------------------- 图片
 
 export const artworkCache = new Map();
-// 模板缓存：unit（步兵）/ order（指令）
-const templateCache = { unit: null, order: null, shield: null };
+// 模板缓存：unit（步兵）/ order（指令）/ custom（用户自制）
+const templateCache = { unit: null, order: null, shield: null, custom: null, customSrc: null };
+
+// 自定义模板版式（由 templateAnalyzer 生成，存在时优先使用）
+let customLayout = null;
+
+// 模板/卡标变更版本号：UI 订阅它来触发重绘
+let assetVersion = 0;
+const versionListeners = new Set();
+
+export function getAssetVersion() {
+  return assetVersion;
+}
+
+export function subscribeAssetChange(fn) {
+  versionListeners.add(fn);
+  return () => versionListeners.delete(fn);
+}
+
+function bumpAssetVersion() {
+  assetVersion++;
+  versionListeners.forEach((fn) => {
+    try { fn(assetVersion); } catch { /* 忽略单个订阅者异常 */ }
+  });
+}
+
+/** 设置自定义卡框模板（传入图片 dataURL 与识别出的版式） */
+export function setCustomTemplate(src, layout) {
+  customLayout = layout || null;
+  if (!src) {
+    templateCache.custom = null;
+    templateCache.customSrc = null;
+    return Promise.resolve();
+  }
+  templateCache.customSrc = src;
+  return loadImage(src).then((img) => {
+    templateCache.custom = img || false;
+    bumpAssetVersion();
+  });
+}
+
+/** 清除自定义模板，回到内置模板 */
+export function clearCustomTemplate() {
+  templateCache.custom = null;
+  templateCache.customSrc = null;
+  customLayout = null;
+  bumpAssetVersion();
+}
+
+/** 是否有用自定义模板 */
+export function hasCustomTemplate() {
+  return !!(templateCache.customSrc && customLayout);
+}
+
+// 自定义卡标（替换中央兵种图标）
+const customIconCache = { src: null, img: null };
+export function setCustomIcon(src) {
+  customIconCache.src = src || null;
+  if (!src) {
+    customIconCache.img = null;
+    bumpAssetVersion();
+    return Promise.resolve();
+  }
+  return loadImage(src).then((img) => {
+    customIconCache.img = img || null;
+    bumpAssetVersion();
+  });
+}
+export function hasCustomIcon() {
+  return !!(customIconCache.src && customIconCache.img);
+}
 
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -521,9 +590,15 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
 
   const isOrder = data.type === "order";
   const isUnit = !isOrder;
-  // 按卡牌类型选择版式与模板
-  const L = isOrder ? ORDER_LAYOUT : LAYOUT;
-  const tpl = isOrder ? templateCache.order : templateCache.unit;
+
+  // 版式与模板选择：自定义模板 > 指令卡 > 单位卡
+  const useCustom = !!(customLayout && templateCache.customSrc);
+  let L = useCustom ? customLayout : isOrder ? ORDER_LAYOUT : LAYOUT;
+  const tpl = useCustom
+    ? templateCache.custom
+    : isOrder
+      ? templateCache.order
+      : templateCache.unit;
 
   ctx.clearRect(0, 0, W, H);
   ctx.save();
@@ -642,17 +717,25 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     }
   }
 
-  // ── 6.5 中央兵种图标（仅单位卡；指令卡模板自带旗子图标）
-  if (isUnit) {
-    const pc = L.plateC;
-    typeIcon(
-      ctx,
-      pc.x + pc.w / 2 + (ap.iconX || 0),
-      pc.y + pc.h / 2 + (ap.iconY || 0),
-      46 * (1 + (ap.iconScale || 0)),
-      data.type,
-      ap.iconColor || C.statText
-    );
+  // ── 6.5 中央图标：优先用自定义卡标，否则画内置钢盔
+  if (L.plateC || isUnit) {
+    const pc = L.plateC || { x: 213, y: 454.5, w: 75.4, h: 77.3 };
+    const cx = pc.x + pc.w / 2 + (ap.iconX || 0);
+    const cy = pc.y + pc.h / 2 + (ap.iconY || 0);
+    const size = (isUnit ? 46 : 44) * (1 + (ap.iconScale || 0));
+
+    if (customIconCache.img) {
+      // 自定义卡标：等比缩放塞进板内，保持原图比例
+      const img = customIconCache.img;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      let dw = size;
+      let dh = size;
+      if (ratio > 1) dh = size / ratio;
+      else dw = size * ratio;
+      ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    } else if (isUnit) {
+      typeIcon(ctx, cx, cy, size, data.type, ap.iconColor || C.statText);
+    }
   }
 
   // ── 8. 稀有度形状（下层，浅灰；被词条部分遮挡）

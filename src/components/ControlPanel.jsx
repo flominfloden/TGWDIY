@@ -7,6 +7,7 @@ import { ArtPanel } from "./panels/ArtPanel";
 import { AppearancePanel } from "./panels/AppearancePanel";
 import { VariantManager } from "./panels/VariantManager";
 import { TopologyPanel } from "./panels/TopologyPanel";
+import { TemplatePanel } from "./panels/TemplatePanel";
 
 function Collapsible({ title, icon, children, defaultOpen = true }) {
   const [open, setOpen] = React.useState(defaultOpen);
@@ -38,6 +39,9 @@ export function ControlPanel() {
         </Collapsible>
         <Collapsible title="原画与微调" icon={<>🖼</>}>
           <ArtPanel />
+        </Collapsible>
+        <Collapsible title="模板与卡标" icon={<>🧩</>} defaultOpen={false}>
+          <TemplatePanel />
         </Collapsible>
         <Collapsible title="高级外观微调" icon={<>🎨</>}>
           <AppearancePanel />

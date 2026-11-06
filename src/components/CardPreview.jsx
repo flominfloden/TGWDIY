@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useEditor } from "../store/EditorContext";
 import {
   renderMainCard, MAIN_W, MAIN_H, assetsReady,
+  subscribeAssetChange, getAssetVersion,
 } from "../core/renderer";
 import { resolveData, resolveArt, variantInfo } from "../core/cardModel";
 
@@ -14,6 +15,10 @@ function CanvasFace({ card, variantId, size }) {
   const data = resolveData(card, variantId);
   const art = resolveArt(card, variantId);
   const ap = card.appearance;
+  // 模板/卡标变更时递增，触发重绘
+  const [assetVer, setAssetVer] = React.useState(getAssetVersion());
+
+  useEffect(() => subscribeAssetChange(setAssetVer), []);
 
   useEffect(() => {
     const c = ref.current;
@@ -44,7 +49,7 @@ function CanvasFace({ card, variantId, size }) {
       const t = setTimeout(retry, 400);
       return () => { alive = false; clearTimeout(t); };
     }
-  }, [data, art, ap, variantId, card.variants.length, card.appearance]);
+  }, [data, art, ap, variantId, card.variants.length, card.appearance, assetVer]);
 
   return (
     <canvas
