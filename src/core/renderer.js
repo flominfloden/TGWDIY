@@ -764,20 +764,18 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
   }
 
   // ── 6.5 中央图标
-  //   模板自带的钢盔图标需要先被同色块覆盖，再考虑是否绘制自定义卡标。
-  //   - 无卡标：覆盖后留空（隐藏原图标）
-  //   - 有卡标：覆盖后绘制卡标
-  if (L.plateC || isUnit) {
-    const pc = L.plateC || { x: 213, y: 454.5, w: 75.4, h: 77.3 };
+  //   模板自带的图标（钢盔 / 旗子）是卡框的一部分，默认原样显示。
+  //   只有用户上传了自定义卡标时，才先用同色块盖住原图标，再绘制卡标。
+  if (customIconCache.img && (L.plateC || isUnit)) {
+    const pc = L.plateC || { x: 210, y: 448, w: 88, h: 88 };
     const cx = pc.x + pc.w / 2 + (ap.iconX || 0);
     const cy = pc.y + pc.h / 2 + (ap.iconY || 0);
     const size = (isUnit ? 46 : 44) * (1 + (ap.iconScale || 0));
 
-    // 只覆盖模板自带图标本身的范围（L.iconBox），保留板面其余底色纹理。
+    // 只覆盖模板自带图标本身的范围（L.iconBox），保留板面其余底色纹理
     const ib = L.iconBox || null;
-    // 采样图标周围的板面底色
-    const bgColor = ib ? sampleIconSurround(ctx, ib, pc, s) : "rgb(66,78,88)";
     if (ib) {
+      const bgColor = sampleIconSurround(ctx, ib, pc, s);
       const pad = Math.max(1.2, Math.min(ib.w, ib.h) * 0.045);
       ctx.save();
       ctx.fillStyle = bgColor;
@@ -793,16 +791,14 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
       ctx.restore();
     }
 
-    // 有自定义卡标才绘制
-    if (customIconCache.img) {
-      const img = customIconCache.img;
-      const ratio = img.naturalWidth / img.naturalHeight;
-      let dw = size;
-      let dh = size;
-      if (ratio > 1) dh = size / ratio;
-      else dw = size * ratio;
-      ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
-    }
+    // 绘制自定义卡标（等比缩放，不拉伸）
+    const img = customIconCache.img;
+    const ratio = img.naturalWidth / img.naturalHeight;
+    let dw = size;
+    let dh = size;
+    if (ratio > 1) dh = size / ratio;
+    else dw = size * ratio;
+    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
   }
 
   // ── 8. 稀有度形状（下层，浅灰；被词条部分遮挡）
