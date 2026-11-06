@@ -47,6 +47,9 @@ export const LAYOUT = {
   nameBar: { x: 10.1, y: 550.0, w: 359.4, h: 48.5, cx: 189.8, cy: 574.2 },
   // 卡名条右侧：词条区（词条与稀有度叠在同一位置）
   keyword: { cx: 431, cy: 592, w: 118, h: 48.5 },
+  // 模板自带图标的精确范围（实测：钢盔居中，占板内壁约 67%）
+  // 用于无自定义卡标时精确覆盖，避免盖住板面底色纹理
+  iconBox: { x: 227.1, y: 471.7, w: 47.3, h: 47.0 },
   // 稀有度形状标记：与词条同一中心，被词条部分遮挡
   rarityMarkY: 616,
   // 卡名条下方：描述文字区
@@ -78,6 +81,8 @@ export const ORDER_LAYOUT = {
   rarityMarkY: 586,
   // 卡名条下方：描述文字区 x16..368（分隔线左侧）
   textZone: { x: 16, y: 592, w: 352, h: 92 },
+  // 模板自带旗子图标的精确范围（实测，占板内壁约 91%）
+  iconBox: { x: 225.7, y: 455.7, w: 52.9, h: 52.7 },
   // 指令卡模板自带旗子图标，不再叠加兵种图标
   hasBuiltinIcon: true,
 };
@@ -419,35 +424,40 @@ function shieldPath(ctx, x, y, w, h) {
   ctx.closePath();
 }
 
-// 采样中央板底色：在板内四个角落取样，取中位颜色作为覆盖块颜色。
-// 这样能自动适配不同模板的板面颜色（深蓝灰 / 深棕 等）。
-function samplePlateBg(ctx, pc, scale) {
-  // 取板内四角内侧的点：图标居中，四角一定在图标之外
-  const pts = [
-    [pc.x + pc.w * 0.14, pc.y + pc.h * 0.14],
-    [pc.x + pc.w * 0.86, pc.y + pc.h * 0.14],
-    [pc.x + pc.w * 0.14, pc.y + pc.h * 0.86],
-    [pc.x + pc.w * 0.86, pc.y + pc.h * 0.86],
-  ];
-
+// 采样图标周围环带的板面颜色。
+// 关键：采样点必须紧贴图标 box 的外圈（而不是板四角），
+// 这样取到的才是真正的板面底色，且不受图标本身干扰。
+function sampleIconSurround(ctx, ib, pc, scale) {
   const samples = [];
-  for (const [lx, ly] of pts) {
+  const push = (lx, ly) => {
     try {
-      const px = ctx.getImageData(
-        Math.round(lx * scale),
-        Math.round(ly * scale),
-        1,
-        1
-      ).data;
+      const px = ctx.getImageData(Math.round(lx * scale), Math.round(ly * scale), 1, 1).data;
       if (px[3] > 200) samples.push([px[0], px[1], px[2]]);
     } catch {
-      /* 跨域或画布被污染时忽略 */
+      /* 画布污染时忽略 */
     }
+  };
+
+  // 图标 box 四周的偏移量（先试近处，再试远处）
+  const gaps = [0.06, 0.10, 0.16, 0.22];
+  for (const g of gaps) {
+    const gapX = ib.w * g;
+    const gapY = ib.h * g;
+    // 上、下、左、右四条边的中点
+    push(ib.x + ib.w * 0.5, ib.y - gapY);              // 上
+    push(ib.x + ib.w * 0.5, ib.y + ib.h + gapY);       // 下
+    push(ib.x - gapX, ib.y + ib.h * 0.5);              // 左
+    push(ib.x + ib.w + gapX, ib.y + ib.h * 0.5);       // 右
   }
 
-  if (!samples.length) return "rgba(58,68,80,1)"; // 兜底：深蓝灰
+  // 再补板四角（离图标很远，一定安全）
+  push(pc.x + pc.w * 0.10, pc.y + pc.h * 0.10);
+  push(pc.x + pc.w * 0.90, pc.y + pc.h * 0.10);
+  push(pc.x + pc.w * 0.10, pc.y + pc.h * 0.90);
+  push(pc.x + pc.w * 0.90, pc.y + pc.h * 0.90);
 
-  // 各通道取中位数，抗噪
+  if (!samples.length) return "rgb(66,78,88)"; // 兜底
+
   const med = (i) => {
     const v = samples.map((s) => s[i]).sort((a, b) => a - b);
     return v[Math.floor(v.length / 2)];
@@ -763,26 +773,25 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     const cy = pc.y + pc.h / 2 + (ap.iconY || 0);
     const size = (isUnit ? 46 : 44) * (1 + (ap.iconScale || 0));
 
-    // 采样中央板底色（在当前已绘制的模板上取板内角落的像素）
-    const bgColor = samplePlateBg(ctx, pc, s);
-
-    // 覆盖整块板内壁（不只是图标范围），确保任何尺寸的模板图标都被盖住。
-    // 内壁留出边框宽度，并用圆角贴合，避免直角在板角露出。
-    const inset = Math.min(pc.w, pc.h) * 0.08;
-    const ix = pc.x + inset;
-    const iy = pc.y + inset;
-    const iw = pc.w - inset * 2;
-    const ih = pc.h - inset * 2;
-    const radius = Math.min(iw, ih) * 0.14;
-
-    ctx.save();
-    ctx.fillStyle = bgColor;
-    roundRect(ctx, ix, iy, iw, ih, radius);
-    ctx.fill();
-    // 二次覆盖中心区域，防止圆角处残留（用同一个颜色，不会加深）
-    roundRect(ctx, ix, iy, iw, ih, radius);
-    ctx.fill();
-    ctx.restore();
+    // 只覆盖模板自带图标本身的范围（L.iconBox），保留板面其余底色纹理。
+    const ib = L.iconBox || null;
+    // 采样图标周围的板面底色
+    const bgColor = ib ? sampleIconSurround(ctx, ib, pc, s) : "rgb(66,78,88)";
+    if (ib) {
+      const pad = Math.max(1.2, Math.min(ib.w, ib.h) * 0.045);
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      roundRect(
+        ctx,
+        ib.x - pad,
+        ib.y - pad,
+        ib.w + pad * 2,
+        ib.h + pad * 2,
+        Math.min(ib.w, ib.h) * 0.10
+      );
+      ctx.fill();
+      ctx.restore();
+    }
 
     // 有自定义卡标才绘制
     if (customIconCache.img) {
