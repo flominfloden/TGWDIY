@@ -44,7 +44,7 @@ export const LAYOUT = {
   plateC: { x: 212.5, y: 454.6, w: 76.4, h: 77.0, cx: 250.7, cy: 493.0 },
   plateR: { x: 394.4, y: 451.7, w: 75.0, h: 71.2, cx: 431.9, cy: 487.2 },
   // 底部卡名条（模板自带深色胶囊）：y554.8..598.3，横跨 x0..369
-  nameBar: { x: 9.7, y: 554.8, w: 359.7, h: 43.5, cx: 189.6, cy: 576.5 },
+  nameBar: { x: 0, y: 554.8, w: 369.4, h: 43.5, cx: 189.6, cy: 576.5 },
   // 卡名条右侧：词条区（竖分隔线 x372.2 右侧）
   keyword: { cx: 432.5, cy: 576.5, w: 116, h: 43.5 },
   // 模板自带钢盔的精确范围（实测）
@@ -723,15 +723,40 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     ctx.fillText(opStr, px, cs.cy);
   }
 
-  // ── 5. 卡名（模板底部深色胶囊内）
+  // ── 5. 卡名条底色（按国家着色）+ 卡名文字
+  //   先用国家色给模板自带的深色胶囊上色（multiply 混合保留模板纹理），
+  //   再在胶囊内居中绘制卡名。
+  const nb = L.nameBar;
+  const barColor = NAME_BAR_COLORS[data.nation] || null;
+
+  if (barColor && !ap.nameBarColorOff) {
+    // 用 multiply 把国家色叠到模板的深色条上：深色部分变国家色，浅色描边保持
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = barColor;
+    // 只覆盖胶囊主体（避开左右两端圆角外的区域，用圆角矩形贴合）
+    const barRadius = Math.min(nb.h / 2, 11);
+    roundRect(ctx, nb.x, nb.y, nb.w, nb.h, barRadius);
+    ctx.fill();
+    ctx.restore();
+
+    // 再补一层柔和的叠加，让颜色更饱和（multiply 对纯黑效果弱）
+    ctx.save();
+    ctx.globalCompositeOperation = "soft-light";
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = barColor;
+    roundRect(ctx, nb.x, nb.y, nb.w, nb.h, barRadius);
+    ctx.fill();
+    ctx.restore();
+  }
+
   if (data.nameZh) {
-    const nb = L.nameBar;
     const size = fitSize(ctx, data.nameZh, nb.w - 40, ap.nameSize || 30, 12, FONT.cnBold);
     ctx.font = `700 ${size}px ${FONT.cnBold}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const nameColor = NAME_BAR_COLORS[data.nation] || C.nameText;
-    ctx.fillStyle = ap.nameColor || nameColor;
+    // 文字保持奶白色（不再用国家色，因为底色已经是国家色了）
+    ctx.fillStyle = ap.nameColor || C.nameText;
     ctx.fillText(data.nameZh, nb.cx + (ap.nameX || 0), nb.cy + (ap.nameY || 0));
   }
 
