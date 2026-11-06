@@ -41,7 +41,7 @@ export const LAYOUT = {
   flagInner: { x: 400.8, y: 45.5, w: 69.8, h: 111.1 },
   // 三格数值板（中心点）
   plateL: { x: 29.0, y: 451.5, w: 75.4, h: 72.7, cx: 66.7, cy: 487.9 },
-  plateC: { x: 213.0, y: 454.5, w: 75.4, h: 77.3, cx: 250.7, cy: 493.2 },
+  plateC: { x: 210.0, y: 448.0, w: 88.0, h: 88.0, cx: 254.0, cy: 492.0 },
   plateR: { x: 395.7, y: 451.5, w: 73.9, h: 72.7, cx: 432.7, cy: 487.9 },
   // 底部卡名条（模板自带深色胶囊）
   nameBar: { x: 10.1, y: 550.0, w: 359.4, h: 48.5, cx: 189.8, cy: 574.2 },
@@ -419,6 +419,42 @@ function shieldPath(ctx, x, y, w, h) {
   ctx.closePath();
 }
 
+// 采样中央板底色：在板内四个角落取样，取中位颜色作为覆盖块颜色。
+// 这样能自动适配不同模板的板面颜色（深蓝灰 / 深棕 等）。
+function samplePlateBg(ctx, pc, scale) {
+  // 取板内四角内侧的点：图标居中，四角一定在图标之外
+  const pts = [
+    [pc.x + pc.w * 0.14, pc.y + pc.h * 0.14],
+    [pc.x + pc.w * 0.86, pc.y + pc.h * 0.14],
+    [pc.x + pc.w * 0.14, pc.y + pc.h * 0.86],
+    [pc.x + pc.w * 0.86, pc.y + pc.h * 0.86],
+  ];
+
+  const samples = [];
+  for (const [lx, ly] of pts) {
+    try {
+      const px = ctx.getImageData(
+        Math.round(lx * scale),
+        Math.round(ly * scale),
+        1,
+        1
+      ).data;
+      if (px[3] > 200) samples.push([px[0], px[1], px[2]]);
+    } catch {
+      /* 跨域或画布被污染时忽略 */
+    }
+  }
+
+  if (!samples.length) return "rgba(58,68,80,1)"; // 兜底：深蓝灰
+
+  // 各通道取中位数，抗噪
+  const med = (i) => {
+    const v = samples.map((s) => s[i]).sort((a, b) => a - b);
+    return v[Math.floor(v.length / 2)];
+  };
+  return `rgb(${med(0)},${med(1)},${med(2)})`;
+}
+
 // ---------------------------------------------------------------- 图片
 
 export const artworkCache = new Map();
@@ -717,15 +753,39 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     }
   }
 
-  // ── 6.5 中央图标：优先用自定义卡标，否则画内置钢盔
+  // ── 6.5 中央图标
+  //   模板自带的钢盔图标需要先被同色块覆盖，再考虑是否绘制自定义卡标。
+  //   - 无卡标：覆盖后留空（隐藏原图标）
+  //   - 有卡标：覆盖后绘制卡标
   if (L.plateC || isUnit) {
     const pc = L.plateC || { x: 213, y: 454.5, w: 75.4, h: 77.3 };
     const cx = pc.x + pc.w / 2 + (ap.iconX || 0);
     const cy = pc.y + pc.h / 2 + (ap.iconY || 0);
     const size = (isUnit ? 46 : 44) * (1 + (ap.iconScale || 0));
 
+    // 采样中央板底色（在当前已绘制的模板上取板内角落的像素）
+    const bgColor = samplePlateBg(ctx, pc, s);
+
+    // 覆盖整块板内壁（不只是图标范围），确保任何尺寸的模板图标都被盖住。
+    // 内壁留出边框宽度，并用圆角贴合，避免直角在板角露出。
+    const inset = Math.min(pc.w, pc.h) * 0.08;
+    const ix = pc.x + inset;
+    const iy = pc.y + inset;
+    const iw = pc.w - inset * 2;
+    const ih = pc.h - inset * 2;
+    const radius = Math.min(iw, ih) * 0.14;
+
+    ctx.save();
+    ctx.fillStyle = bgColor;
+    roundRect(ctx, ix, iy, iw, ih, radius);
+    ctx.fill();
+    // 二次覆盖中心区域，防止圆角处残留（用同一个颜色，不会加深）
+    roundRect(ctx, ix, iy, iw, ih, radius);
+    ctx.fill();
+    ctx.restore();
+
+    // 有自定义卡标才绘制
     if (customIconCache.img) {
-      // 自定义卡标：等比缩放塞进板内，保持原图比例
       const img = customIconCache.img;
       const ratio = img.naturalWidth / img.naturalHeight;
       let dw = size;
@@ -733,8 +793,6 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
       if (ratio > 1) dh = size / ratio;
       else dw = size * ratio;
       ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
-    } else if (isUnit) {
-      typeIcon(ctx, cx, cy, size, data.type, ap.iconColor || C.statText);
     }
   }
 
