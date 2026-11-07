@@ -54,6 +54,8 @@ export const LAYOUT = {
   rarityMarkY: 616,
   // 卡名条下方：描述文字区
   textZone: { x: 14, y: 604, w: 356, h: 84 },
+  // 顶部条纹横框（实测 y11..72 贯穿全宽）：按国家上色
+  topBand: { x: 0, y: 11, w: 500, h: 61 },
 };
 
 // ---------------------------------------------------------------- 指令卡版式
@@ -83,6 +85,8 @@ export const ORDER_LAYOUT = {
   textZone: { x: 16, y: 592, w: 352, h: 92 },
   // 模板自带旗子图标的精确范围（实测，占板内壁约 91%）
   iconBox: { x: 225.7, y: 455.7, w: 52.9, h: 52.7 },
+  // 顶部条纹横框（实测 y10.1..75.1）：按国家上色
+  topBand: { x: 0, y: 10.1, w: 500, h: 65 },
   // 指令卡模板自带旗子图标，不再叠加兵种图标
   hasBuiltinIcon: true,
 };
@@ -673,6 +677,26 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     ctx.drawImage(tpl, 0, 0, LW, LH);
   }
 
+  // ── 4.2 顶部条纹横框：按国家上色（保留模板条纹纹理）
+  const bandColor = NAME_BAR_COLORS[data.nation] || null;
+  if (bandColor && L.topBand) {
+    const tb = L.topBand;
+    // multiply：把模板的深蓝灰底替换成国家色，条纹与纹理保留
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = bandColor;
+    ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
+    ctx.restore();
+
+    // overlay：把 multiply 压暗的部分提亮，让国家色更明显
+    ctx.save();
+    ctx.globalCompositeOperation = "overlay";
+    ctx.globalAlpha = 0.62;
+    ctx.fillStyle = bandColor;
+    ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
+    ctx.restore();
+  }
+
   // ── 4. 费用（模板左上费用盾内）
   const dep = data.deployCost === null || data.deployCost === undefined ? "0" : String(data.deployCost);
   const opStr = data.actionCost === null || data.actionCost === undefined ? "0" : String(data.actionCost);
@@ -722,40 +746,17 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     ctx.fillText(opStr, px, cs.cy);
   }
 
-  // ── 5. 卡名条底色（按国家着色）+ 卡名文字
-  //   先用国家色给模板自带的深色胶囊上色（multiply 混合保留模板纹理），
-  //   再在胶囊内居中绘制卡名。
+  // ── 5. 卡名（模板自带的深色胶囊保持原样，只给文字上国家色）
   const nb = L.nameBar;
-  const barColor = NAME_BAR_COLORS[data.nation] || null;
-
-  if (barColor && !ap.nameBarColorOff) {
-    // 用 multiply 把国家色叠到模板的深色条上：深色部分变国家色，浅色描边保持
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.fillStyle = barColor;
-    // 只覆盖胶囊主体（避开左右两端圆角外的区域，用圆角矩形贴合）
-    const barRadius = Math.min(nb.h / 2, 11);
-    roundRect(ctx, nb.x, nb.y, nb.w, nb.h, barRadius);
-    ctx.fill();
-    ctx.restore();
-
-    // 再补一层柔和的叠加，让颜色更饱和（multiply 对纯黑效果弱）
-    ctx.save();
-    ctx.globalCompositeOperation = "soft-light";
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = barColor;
-    roundRect(ctx, nb.x, nb.y, nb.w, nb.h, barRadius);
-    ctx.fill();
-    ctx.restore();
-  }
 
   if (data.nameZh) {
     const size = fitSize(ctx, data.nameZh, nb.w - 40, ap.nameSize || 30, 12, FONT.cnBold);
     ctx.font = `700 ${size}px ${FONT.cnBold}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    // 文字保持奶白色（不再用国家色，因为底色已经是国家色了）
-    ctx.fillStyle = ap.nameColor || C.nameText;
+    // 文字用国家色（军绿 / 蓝 / 黑灰 / 草绿）
+    const nameColor = NAME_BAR_COLORS[data.nation] || C.nameText;
+    ctx.fillStyle = ap.nameColor || nameColor;
     ctx.fillText(data.nameZh, nb.cx + (ap.nameX || 0), nb.cy + (ap.nameY || 0));
   }
 
