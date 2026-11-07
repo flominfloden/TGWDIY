@@ -54,8 +54,6 @@ export const LAYOUT = {
   rarityMarkY: 616,
   // 卡名条下方：描述文字区
   textZone: { x: 14, y: 604, w: 356, h: 84 },
-  // 顶部条纹横框（实测 y11..72 贯穿全宽）：按国家上色
-  topBand: { x: 0, y: 11, w: 500, h: 61 },
 };
 
 // ---------------------------------------------------------------- 指令卡版式
@@ -85,8 +83,6 @@ export const ORDER_LAYOUT = {
   textZone: { x: 16, y: 592, w: 352, h: 92 },
   // 模板自带旗子图标的精确范围（实测，占板内壁约 91%）
   iconBox: { x: 225.7, y: 455.7, w: 52.9, h: 52.7 },
-  // 顶部条纹横框（实测 y10.1..75.1）：按国家上色
-  topBand: { x: 0, y: 10.1, w: 500, h: 65 },
   // 指令卡模板自带旗子图标，不再叠加兵种图标
   hasBuiltinIcon: true,
 };
@@ -675,26 +671,6 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
   // ── 4. 叠加卡框模板（透明洞处透出原画与国旗）
   if (tpl && tpl.complete && tpl.naturalWidth) {
     ctx.drawImage(tpl, 0, 0, LW, LH);
-  }
-
-  // ── 4.2 顶部条纹横框：按国家上色（保留模板条纹纹理）
-  const bandColor = NAME_BAR_COLORS[data.nation] || null;
-  if (bandColor && L.topBand) {
-    const tb = L.topBand;
-    // multiply：把模板的深蓝灰底替换成国家色，条纹与纹理保留
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.fillStyle = bandColor;
-    ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
-    ctx.restore();
-
-    // overlay：把 multiply 压暗的部分提亮，让国家色更明显
-    ctx.save();
-    ctx.globalCompositeOperation = "overlay";
-    ctx.globalAlpha = 0.62;
-    ctx.fillStyle = bandColor;
-    ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
-    ctx.restore();
   }
 
   // ── 4. 费用（模板左上费用盾内）
