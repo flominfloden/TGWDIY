@@ -1,9 +1,6 @@
 import React, { useState, useRef } from "react";
-import { UploadSimple, Trash, CheckCircle, WarningCircle, ImageSquare } from "@phosphor-icons/react";
+import { UploadSimple, Trash, CheckCircle, ImageSquare, Info } from "@phosphor-icons/react";
 import { useToast } from "../Toast";
-import {
-  analyzeTemplate,
-} from "../../core/templateAnalyzer";
 import {
   setCustomTemplate,
   clearCustomTemplate,
@@ -12,14 +9,6 @@ import {
   hasCustomIcon,
 } from "../../core/renderer";
 
-const AREA_LABELS = {
-  art: "原画窗",
-  flag: "国旗盾",
-  nameBar: "卡名条",
-  plateC: "中央板",
-  cost: "费用盾",
-};
-
 export function TemplatePanel() {
   const toast = useToast();
   const tplInput = useRef(null);
@@ -27,7 +16,6 @@ export function TemplatePanel() {
 
   const [tplName, setTplName] = useState(hasCustomTemplate() ? "已载入" : "");
   const [tplBusy, setTplBusy] = useState(false);
-  const [detected, setDetected] = useState(null);
   const [iconName, setIconName] = useState(hasCustomIcon() ? "已载入" : "");
 
   const readFile = (file) =>
@@ -38,7 +26,7 @@ export function TemplatePanel() {
       r.readAsDataURL(file);
     });
 
-  // 上传卡框模板
+  // 上传卡框模板：只换底图，文字位置沿用内置版式
   const onPickTemplate = async (e) => {
     const file = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -51,22 +39,11 @@ export function TemplatePanel() {
     setTplBusy(true);
     try {
       const src = await readFile(file);
-      const result = await analyzeTemplate(src);
-      await setCustomTemplate(src, result.layout);
-      setDetected(result.detected);
+      await setCustomTemplate(src);
       setTplName(file.name);
-
-      const miss = Object.entries(result.detected)
-        .filter(([, ok]) => !ok)
-        .map(([k]) => AREA_LABELS[k]);
-
-      if (miss.length) {
-        toast.info(`已载入模板，未识别出：${miss.join("、")}（可用默认位置）`);
-      } else {
-        toast.ok("模板已载入，各区域全部识别成功");
-      }
+      toast.ok("卡框已替换");
     } catch (err) {
-      toast.err("模板解析失败：" + (err.message || "未知错误"));
+      toast.err("载入失败：" + (err.message || "未知错误"));
     } finally {
       setTplBusy(false);
     }
@@ -75,8 +52,7 @@ export function TemplatePanel() {
   const onClearTemplate = () => {
     clearCustomTemplate();
     setTplName("");
-    setDetected(null);
-    toast.info("已恢复内置模板");
+    toast.info("已恢复内置卡框");
   };
 
   // 上传自定义卡标
@@ -109,7 +85,7 @@ export function TemplatePanel() {
       <div className="field">
         <div className="flabel">
           卡框模板
-          <span className="hint">上传自己的模板，自动识别版式</span>
+          <span className="hint">替换底图，文字位置不变</span>
         </div>
 
         <button
@@ -118,7 +94,7 @@ export function TemplatePanel() {
           disabled={tplBusy}
         >
           <UploadSimple size={15} />
-          {tplBusy ? "解析中…" : "选择模板图片"}
+          {tplBusy ? "载入中…" : "选择卡框图"}
         </button>
         <input
           ref={tplInput}
@@ -134,21 +110,15 @@ export function TemplatePanel() {
           </div>
         )}
 
-        {detected && (
-          <div className="chip-grid" style={{ marginTop: 8 }}>
-            {Object.entries(detected).map(([k, ok]) => (
-              <span key={k} className={`chip ${ok ? "on" : ""}`} style={{ cursor: "default" }}>
-                {ok ? "✓" : "×"} {AREA_LABELS[k]}
-              </span>
-            ))}
-          </div>
-        )}
-
         {tplName && (
           <button className="btn danger sm full" style={{ marginTop: 8 }} onClick={onClearTemplate}>
-            <Trash size={14} /> 恢复内置模板
+            <Trash size={14} /> 恢复内置卡框
           </button>
         )}
+
+        <div className="inline-tip" style={{ marginTop: 8 }}>
+          <Info size={13} /> 卡框图会按 500×700 拉伸铺满，建议使用相同比例的图片。
+        </div>
       </div>
 
       <div className="field">
@@ -182,12 +152,6 @@ export function TemplatePanel() {
             <Trash size={14} /> 恢复内置卡标
           </button>
         )}
-      </div>
-
-      <div className="field">
-        <div className="inline-tip">
-          <WarningCircle size={13} /> 模板建议使用 PNG 透明背景；识别依赖透明区与深色块的位置。
-        </div>
       </div>
     </>
   );
