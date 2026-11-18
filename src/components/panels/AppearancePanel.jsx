@@ -119,8 +119,9 @@ export function AppearancePanel() {
             onChange={(e) => dispatch(updateAppearance(card, { statColor: e.target.value }))} />
         </div>
       </div>
-      <ControlRow label="X 偏移" field="statX" numeric={{ min: -80, max: 80, def: 0 }} />
-      <ControlRow label="Y 偏移" field="statY" numeric={{ min: -60, max: 60, def: 0 }} />
+      <div className="inline-tip" style={{ marginBottom: 8 }}>
+        攻防的独立位置在「元素位置微调」面板里调整。
+      </div>
 
       {/* 特效 */}
       <div className="flabel" style={{ margin: "12px 0 4px" }}>特效文本</div>

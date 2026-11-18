@@ -552,3 +552,209 @@ input[type="color"].color-input {
   .control-pane { width: 100%; flex: 0 0 auto; border-left: none; border-top: 1px solid var(--border); max-height: 55vh; }
   .preview-stage { flex-wrap: wrap; }
 }
+
+/* ───────────────────────────────── 拖动微调层 */
+.drag-tuner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* 触摸时不要在滚动/缩放上抢手势 */
+  touch-action: none;
+  z-index: 4;
+  pointer-events: auto;
+}
+.drag-zone {
+  position: absolute;
+  border: 1px dashed rgba(120, 170, 255, 0.85);
+  background: rgba(120, 170, 255, 0.10);
+  border-radius: 4px;
+  cursor: grab;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  transition: background 0.12s, border-color 0.12s;
+  touch-action: none;
+}
+.drag-zone:hover {
+  background: rgba(120, 170, 255, 0.20);
+  border-color: rgba(140, 190, 255, 1);
+}
+.drag-zone.is-selected {
+  border-color: var(--gold, #d9a53a);
+  background: rgba(217, 165, 58, 0.18);
+  border-style: solid;
+}
+.drag-zone.is-dragging {
+  cursor: grabbing;
+  border-color: var(--gold, #d9a53a);
+  background: rgba(217, 165, 58, 0.28);
+}
+.drag-zone-label {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 1px 4px;
+  color: #eaf2ff;
+  background: rgba(40, 60, 90, 0.82);
+  border-radius: 3px 0 3px 0;
+  pointer-events: none;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.preview-zoom-bar .icon-btn.tune-btn.on {
+  border-color: var(--gold, #d9a53a);
+  color: var(--gold, #d9a53a);
+  background: rgba(217, 165, 58, 0.12);
+}
+
+/* ───────────────────────────────── 位置微调面板 */
+.pos-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pos-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 1fr 26px;
+  gap: 6px;
+  align-items: center;
+}
+.pos-name {
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pos-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 7px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.pos-input::-webkit-outer-spin-button,
+.pos-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.pos-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.pos-row .mini-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ───────────────────────────────── 移动端适配 */
+@media (max-width: 760px) {
+  /* 顶栏：允许换行，按钮缩小 */
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 52px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .topbar-brand { font-size: 14px; }
+  .topbar-sub { display: none; }
+  .tb-group { gap: 4px; flex-wrap: wrap; }
+  .tb-btn { padding: 6px 8px; font-size: 12px; }
+  .tb-btn .tb-label { display: none; }
+  .tb-sep { display: none; }
+
+  /* 工作区：上下堆叠，整体可滚动 */
+  .workspace {
+    flex-direction: column;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* 预览区：自适应卡片，高度适中 */
+  .preview-pane {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 6px;
+  }
+  .card-preview.is-main {
+    padding: 4px;
+    gap: 4px;
+    /* 让预览区拿到明确高度，卡片才能自适应放大 */
+    height: 56vh;
+    min-height: 320px;
+    max-height: 560px;
+  }
+  .preview-stage-single {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 4px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .card-preview .label { font-size: 11px; padding: 2px 0; }
+
+  /* 控制面板：占满宽度 */
+  .control-pane {
+    width: 100%;
+    max-height: none;
+    flex: 0 0 auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .panel-scroll { padding: 10px; overflow: visible; }
+
+  /* 表单控件加大触控面积 */
+  .field input[type="text"],
+  .field input[type="number"],
+  .field textarea,
+  .field select {
+    font-size: 16px; /* 防止 iOS 聚焦时自动放大 */
+    padding: 9px 10px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .btn { padding: 10px 12px; font-size: 13px; }
+  .chip { padding: 8px 10px; font-size: 12px; }
+  .num-row { gap: 8px; }
+  .field-row,
+  .field-row-3 { grid-template-columns: 1fr; gap: 8px; }
+
+  /* 按钮组：改成两列网格，避免溢出 */
+  .seg {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .seg .opt {
+    flex: none;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 6px;
+    font-size: 12px;
+  }
+  /* 稀有度是 4 个，保持两列 */
+  .chip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .chip { box-sizing: border-box; width: 100%; }
+
+  /* 拖动热区标签在小屏上略大一点，方便点到 */
+  .drag-zone-label { font-size: 9px; padding: 1px 3px; }
+
+  /* 缩放条更紧凑 */
+  .preview-zoom-bar { padding: 6px 0 8px; gap: 8px; font-size: 12px; }
+  .preview-zoom-bar .icon-btn { width: 30px; height: 30px; }
+}
+
+@media (max-width: 420px) {
+  .topbar { padding: 6px 8px; }
+  .card-preview .label { font-size: 11px; }
+  .preview-stage-single { max-height: 52vh; }
+  .panel-card-body { padding: 10px; }
+  .panel-card-header { font-size: 12px; padding: 10px 12px; }
+}

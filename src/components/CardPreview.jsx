@@ -5,6 +5,7 @@ import {
   subscribeAssetChange, getAssetVersion,
 } from "../core/renderer";
 import { resolveData, resolveArt, variantInfo } from "../core/cardModel";
+import { DragTuner } from "./DragTuner";
 
 const MIN_SIZE = 0.2;
 const MAX_SIZE = 3.0;
@@ -14,9 +15,11 @@ function CanvasFace({ card, variantId, size }) {
   const ref = useRef(null);
   const data = resolveData(card, variantId);
   const art = resolveArt(card, variantId);
-  const ap = card.appearance;
+  const ap = card.appearance || {};
   // 模板/卡标变更时递增，触发重绘
   const [assetVer, setAssetVer] = React.useState(getAssetVersion());
+  // 外观偏移的指纹：保证任何数值变化都能触发重绘
+  const apKey = JSON.stringify(ap);
 
   useEffect(() => subscribeAssetChange(setAssetVer), []);
 
@@ -49,7 +52,7 @@ function CanvasFace({ card, variantId, size }) {
       const t = setTimeout(retry, 400);
       return () => { alive = false; clearTimeout(t); };
     }
-  }, [data, art, ap, variantId, card.variants.length, card.appearance, assetVer]);
+  }, [data, art, ap, apKey, variantId, card.variants.length, card.appearance, assetVer]);
 
   return (
     <canvas
@@ -75,6 +78,7 @@ export function CardPreviewFace({ variantId }) {
 
   const [manual, setManual] = useState(null); // null = 自适应
   const [fit, setFit] = useState(0.8);
+  const [tune, setTune] = useState(false); // 拖动微调模式
 
   // 按可用空间自适应
   const measure = useCallback(() => {
@@ -88,11 +92,14 @@ export function CardPreviewFace({ variantId }) {
 
     const labelH = labelRef.current?.offsetHeight || 0;
     const barH = barRef.current?.offsetHeight || 0;
-    // .card-preview 的 gap(8) * 2 段 + stage padding(8*2)
-    const reserve = labelH + barH + 8 * 2 + 8 * 2;
+    // 窄屏时 stage 高度由内容撑开（clientHeight 可能为 0），用窗口高度兜底
+    const isNarrow = window.innerWidth <= 760;
+    const estH = stageH > 0 ? stageH : Math.round(window.innerHeight * (isNarrow ? 0.5 : 0.7));
+    // .card-preview 的 gap(8) * 2 段 + stage padding
+    const reserve = labelH + barH + (isNarrow ? 16 : 32);
 
-    const availW = stageW - 16;
-    const availH = stageH - reserve;
+    const availW = stageW - (isNarrow ? 8 : 16);
+    const availH = estH - reserve;
     if (availW <= 0 || availH <= 0) return;
 
     const s = Math.min(availW / MAIN_W, availH / MAIN_H);
@@ -173,9 +180,10 @@ export function CardPreviewFace({ variantId }) {
         {info.depth > 0 && <span className="tag">{info.label}</span>}
       </div>
 
-      <div className="preview-stage-single" ref={stageRef} onWheel={onWheel}>
-        <div className="card-canvas-wrap" title="滚轮缩放 · Shift 精细调节">
+      <div className="preview-stage-single" ref={stageRef} onWheel={tune ? undefined : onWheel}>
+        <div className="card-canvas-wrap" title={tune ? "拖动方块微调各元素位置" : "滚轮缩放 · Shift 精细调节"}>
           <CanvasFace card={card} variantId={variantId} size={size} />
+          <DragTuner variantId={variantId} scale={size} active={tune} />
         </div>
       </div>
 
@@ -183,6 +191,14 @@ export function CardPreviewFace({ variantId }) {
         <button className="icon-btn" onClick={() => bump(-1)} aria-label="缩小">−</button>
         <span>{Math.round(size * 100)}%</span>
         <button className="icon-btn" onClick={() => bump(1)} aria-label="放大">+</button>
+        <button
+          className={`icon-btn tune-btn${tune ? " on" : ""}`}
+          onClick={() => setTune((v) => !v)}
+          aria-label="拖动微调"
+          title="拖动微调各元素位置"
+        >
+          ✥
+        </button>
         <button
           className="icon-btn reset"
           onClick={() => setManual(null)}

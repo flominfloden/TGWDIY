@@ -58,10 +58,16 @@ export function defaultAppearance() {
     deployColor: "#f7f6ee", actionColor: "#e0a92c", kColor: "#e0a92c",
     // 攻防数值与图标（深蓝板上的奶白字）
     statSize: 68, statX: 0, statY: 0, statColor: "#f2f0e6",
+    // 攻击 / 防御各自独立的偏移（拖动微调用）
+    atkX: 0, atkY: 0, defX: 0, defY: 0,
     iconX: 0, iconY: 0, iconColor: "#f2f0e6",
     // 描述与词条字体（灰色特效区上的深灰字）
     effectSize: 25, effectLine: 1.45, effectSpacing: 0.6, effectColor: "#33322e",
+    effectX: 0, effectY: 0,
     keywordSize: 24, keywordColor: "#2d2c28",
+    keywordX: 0, keywordY: 0,
+    // 稀有度形状标记的位置微调
+    rarityX: 0, rarityY: 0,
     orderTypeColor: "#f2f0e6",
   };
 }

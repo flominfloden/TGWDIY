@@ -747,7 +747,7 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = statColor;
-      ctx.fillText(atk, pl.cx + OPT_X + (ap.statX || 0), pl.cy + OPT_Y + (ap.statY || 0));
+      ctx.fillText(atk, pl.cx + OPT_X + (ap.atkX || 0), pl.cy + OPT_Y + (ap.atkY || 0));
     }
 
     const pr = L.plateR;
@@ -758,7 +758,7 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = statColor;
-      ctx.fillText(def, pr.cx + OPT_X + (ap.statX || 0), pr.cy + OPT_Y + (ap.statY || 0));
+      ctx.fillText(def, pr.cx + OPT_X + (ap.defX || 0), pr.cy + OPT_Y + (ap.defY || 0));
     }
   }
 
@@ -805,8 +805,8 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
   drawRarityMarks(
     ctx,
     data.rarity,
-    L.keyword.cx,
-    L.rarityMarkY,
+    L.keyword.cx + (ap.rarityX || 0),
+    L.rarityMarkY + (ap.rarityY || 0),
     ap.rarityColor || C.rarityMark
   );
 
@@ -814,6 +814,8 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
   const kwList = resolveKeywords(data);
   if (kwList.length) {
     const k = L.keyword;
+    const kwCx = k.cx + (ap.keywordX || 0);
+    const kwCy = k.cy + (ap.keywordY || 0);
     ctx.save();
     ctx.globalAlpha = 0.95;
 
@@ -828,7 +830,7 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     }
     const step = size + lineGap;
     const blockH = kwList.length * step - lineGap;
-    let y = k.cy - blockH / 2 + size / 2;
+    let y = kwCy - blockH / 2 + size / 2;
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -836,7 +838,7 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     for (const text of kwList) {
       const s2 = fitSize(ctx, text, k.w - 6, size, 11, FONT.cnBold);
       ctx.font = `700 ${s2}px ${FONT.cnBold}`;
-      ctx.fillText(text, k.cx, y);
+      ctx.fillText(text, kwCx, y);
       y += step;
     }
     ctx.restore();

@@ -26,9 +26,24 @@ export function editorReducer(state, action) {
       };
     }
     case "set": {
-      // 一次性原地写入 action.updater(card) 返回新卡牌，不 push 历史（用于高频拖动）
-      const card = action.updater ? action.updater(clone(state.card)) : action.card;
+      // 一次性写入新卡牌，不 push 历史（用于高频拖动）
+      // 兼容两种形式：action.updater(card) 或直接给 action.card
+      const card = action.updater
+        ? action.updater(clone(state.card))
+        : action.card;
+      if (!card) return state;
       return { ...state, card };
+    }
+    case "pushHistory": {
+      // 把「拖动前」的快照压入历史，用于撤销一次拖动
+      if (!action.prev) return state;
+      return {
+        ...state,
+        past: [...state.past.slice(-49), clone(action.prev)],
+        future: [],
+        canUndo: true,
+        canRedo: false,
+      };
     }
     case "undo": {
       if (!state.past.length) return state;
