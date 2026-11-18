@@ -697,26 +697,30 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
     const wSlash = ctx.measureText("/").width;
 
     const total = wDep + slashGap * 2 + wSlash + wOp;
-    let px = cs.cx - total / 2;
+    // 拖动微调偏移（部署/行动/斜杠整体一起移动）
+    const costOX = ap.costX || 0;
+    const costOY = ap.costY || 0;
+    let px = cs.cx - total / 2 + costOX;
+    const cy = cs.cy + costOY;
 
     // 部署
     ctx.font = `400 ${depSize}px ${FONT.cost}`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillStyle = ap.deployColor || C.costNum;
-    ctx.fillText(dep, px, cs.cy);
+    ctx.fillText(dep, px, cy);
     px += wDep + slashGap;
 
     // 斜杠
     ctx.font = `400 ${slashSize}px ${FONT.cost}`;
     ctx.fillStyle = ap.actionColor || C.costOp;
-    ctx.fillText("/", px, cs.cy);
+    ctx.fillText("/", px, cy);
     px += wSlash + slashGap;
 
     // 行动
     ctx.font = `400 ${opSize}px ${FONT.cost}`;
     ctx.fillStyle = ap.actionColor || C.costOp;
-    ctx.fillText(opStr, px, cs.cy);
+    ctx.fillText(opStr, px, cy);
   }
 
   // ── 5. 卡名（模板自带的深色胶囊保持原样，只给文字上国家色）
