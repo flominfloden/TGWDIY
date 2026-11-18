@@ -627,6 +627,29 @@ function drawArtwork(ctx, r, art, mode) {
   return true;
 }
 
+// 把自定义版式与内置版式合并：自定义里缺失/无效的字段回退到内置值。
+// 识别失败的项在 analyzeTemplate 里是 null，直接访问 .x 会抛异常。
+function mergeLayout(custom, base) {
+  if (!custom) return base;
+  const out = { ...base };
+  for (const key of Object.keys(base)) {
+    const c = custom[key];
+    if (c === null || c === undefined) continue; // 保留 base 的值
+    if (typeof c === "object") {
+      // 矩形/中心点：必须带有效数字才采用
+      const valid = Object.values(c).every((v) => typeof v === "number" && Number.isFinite(v));
+      if (valid) out[key] = c;
+    } else {
+      out[key] = c;
+    }
+  }
+  // 自定义里独有的字段也带上
+  for (const key of Object.keys(custom)) {
+    if (!(key in out) && custom[key] != null) out[key] = custom[key];
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- 主绘制
 
 function drawFace(ctx, W, H, data, ap, art, mode) {
@@ -639,7 +662,9 @@ function drawFace(ctx, W, H, data, ap, art, mode) {
 
   // 版式与模板选择：自定义模板 > 指令卡 > 单位卡
   const useCustom = !!(customLayout && templateCache.customSrc);
-  let L = useCustom ? customLayout : isOrder ? ORDER_LAYOUT : LAYOUT;
+  const baseL = isOrder ? ORDER_LAYOUT : LAYOUT;
+  // 自定义版式里识别失败的字段会是 null，逐项回退到内置版式，避免渲染崩溃
+  const L = useCustom ? mergeLayout(customLayout, baseL) : baseL;
   const tpl = useCustom
     ? templateCache.custom
     : isOrder
